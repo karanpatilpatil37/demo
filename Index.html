@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student ERP</title>
+<style>
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  padding: 15px;
+  color: #333;
+  margin: 0;
+  min-height: 100vh;
+}
+.dark {
+  background: #121212;
+  color: #fff;
+}
+.container { max-width: 1000px; margin: auto; }
+.card {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+.dark .card { background: #1e1e1e; }
+input, button {
+  width: 100%;
+  padding: 12px;
+  margin: 8px 0;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+  font-size: 16px;
+}
+button { cursor: pointer; font-weight: bold; }
+.save { background: #28a745; color: #fff; }
+.edit { background: #ffc107; color: #000; }
+.delete { background: #dc3545; color: #fff; }
+.searchBtn { background: #17a2b8; color: #fff; }
+.capture { background: #6f42c1; color: #fff; }
+.retake { background: #fd7e14; color: #fff; }
+.info-text { color: #555; font-size: 0.9em; margin: 4px 0; display: block; }
+.table-container { overflow-x: auto; border-radius: 8px; display: none; }
+table {
+  width: 100%;
+  min-width: 700px;
+  border-collapse: collapse;
+}
+th, td {
+  padding: 12px 8px;
+  text-align: center;
+  border-bottom: 1px solid #ddd;
+}
+th {
+  background: #343a40;
+  color: white;
+  position: sticky;
+  top: 0;
+}
+img {
+  width: 55px;
+  height: 55px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.student-cards { display: none; flex-direction: column; gap: 15px; }
+.student-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+.dark .student-card { background: #1e1e1e; }
+.student-card img {
+  width: 80px;
+  height: 80px;
+  border-radius: 12px;
+  object-fit: cover;
+  float: right;
+  margin-left: 15px;
+}
+.student-card h4 { margin: 0 0 10px 0; font-size: 1.1em; }
+.student-info { font-size: 0.95em; line-height: 1.6; }
+.action-buttons { margin-top: 15px; display: flex; gap: 10px; }
+.action-buttons button { flex: 1; padding: 10px; }
+#cameraArea { margin: 12px 0; text-align: center; }
+#videoPreview {
+  width: 100%;
+  max-width: 320px;
+  border-radius: 8px;
+  background: #000;
+  display: none;
+}
+#capturedPhoto {
+  width: 100%;
+  max-width: 220px;
+  border-radius: 8px;
+  margin: 10px auto;
+  display: none;
+}
+@media (max-width: 767px) {
+  .table-container { display: none !important; }
+  .student-cards { display: flex !important; }
+}
+@media (min-width: 768px) {
+  .table-container { display: block !important; }
+  .student-cards { display: none !important; }
+}
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 14px 20px;
+  border-radius: 8px;
+  display: none;
+  color: white;
+  font-weight: bold;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  z-index: 1000;
+}
+.success { background: #28a745; }
+.error { background: #dc3545; }
+.loading { opacity: 0.7; cursor: wait; }
+</style>
+</head>
+<body>
+<div class="container">
+  <button onclick="toggleDark()">🌙 Dark Mode</button>
+
+  <div class="card">
+    <h2>🧑‍🎓 Student Add / Update</h2>
+    <form id="form">
+      <input type="hidden" id="id">
+      <input id="name" placeholder="Full Name" required>
+      <input id="email" type="email" placeholder="Email" required>
+      <input id="mobile" placeholder="Mobile Number" required>
+
+      <div id="cameraArea">
+        <button type="button" class="capture" id="startCameraBtn">📸 Open Camera</button>
+        <button type="button" class="capture" id="captureBtn" style="display:none;">📷 Take Photo</button>
+        <button type="button" class="retake" id="retakeBtn" style="display:none;">🔄 Retake</button>
+        <video id="videoPreview" autoplay playsinline muted></video>
+        <img id="capturedPhoto" alt="Captured photo preview">
+        <span id="cameraStatus" class="info-text"></span>
+      </div>
+
+      <input type="file" id="photo" accept="image/*" style="margin-top:8px;">
+      <small class="info-text">or use camera above ↑ (if camera not working, use this)</small>
+
+      <button type="submit" class="save" id="saveBtn">💾 Save Student</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="top-bar" style="display:flex; flex-direction:column; gap:10px;">
+      <input id="search" placeholder="🔍 Search by Name..." onkeyup="searchData()">
+      <button class="searchBtn" onclick="loadData()">🔄 Refresh Data</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>📊 Total Students: <span id="total">0</span></h3>
+    <div id="dataMessage" style="text-align:center; padding:20px; color:#666; display:none;">
+      Loading students... or no data found.
+    </div>
+
+    <div class="table-container" id="tableContainer">
+      <table>
+        <thead>
+          <tr>
+            <th>🆔 ID</th>
+            <th>👤 Name</th>
+            <th>📧 Email</th>
+            <th>📱 Mobile</th>
+            <th>📸 Photo</th>
+            <th>⚙️ Action</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="student-cards" id="studentCards"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// Your Google Apps Script URL (redeploy karne ke baad latest URL daalo)
+const URL = "https://script.google.com/macros/s/AKfycbz1ZYwVKNsCe76FSosceDftIbaatZCNkAtrnpOH5nsT5Lr_OKWe03pX93mLgtcbi7B2/exec";
+
+let allData = [];
+let videoStream = null;
+let capturedDataUrl = null;
+
+function showToast(msg, type = "success") {
+  const t = document.getElementById("toast");
+  t.innerText = msg;
+  t.className = `toast ${type}`;
+  t.style.display = "block";
+  setTimeout(() => t.style.display = "none", 4000);
+}
+
+async function loadData() {
+  const saveBtn = document.getElementById("saveBtn");
+  const dataMsg = document.getElementById("dataMessage");
+  dataMsg.style.display = "block";
+  dataMsg.textContent = "Loading students...";
+  saveBtn?.classList.add("loading");
+  if (saveBtn) saveBtn.innerText = "Loading...";
+
+  try {
+    const response = await fetch(URL);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    console.log("Fetched data:", data);
+
+    allData = Array.isArray(data) ? data : [];
+    document.getElementById("total").innerText = allData.length;
+
+    if (allData.length === 0) {
+      dataMsg.textContent = "No students found in database.";
+    } else {
+      dataMsg.style.display = "none";
+    }
+    render(allData);
+  } catch (err) {
+    console.error("Load error:", err);
+    showToast("Failed to load: " + err.message, "error");
+    dataMsg.textContent = "Error loading data. Check internet or GAS setup.";
+  } finally {
+    if (saveBtn) {
+      saveBtn.classList.remove("loading");
+      saveBtn.innerText = "💾 Save Student";
+    }
+  }
+}
+
+function render(data) {
+  let tableHTML = "";
+  let cardsHTML = "";
+
+  if (!data || data.length === 0) {
+    tableHTML = `<tr><td colspan="6" style="padding:40px; color:#888; text-align:center;">No students found</td></tr>`;
+    cardsHTML = `<p style="text-align:center; padding:40px; color:#888;">No students found</p>`;
+  } else {
+    data.forEach(r => {
+      const photo = r.photo ? `<img src="${r.photo}" alt="photo">` : 'No Photo';
+
+      tableHTML += `<tr>
+        <td>${r.id || 'N/A'}</td>
+        <td>${r.name || 'N/A'}</td>
+        <td>${r.email || 'N/A'}</td>
+        <td>${r.mobile || 'N/A'}</td>
+        <td>${photo}</td>
+        <td>
+          <button class="edit" onclick="editData('${r.id || ''}', '${(r.name || '').replace(/'/g,"\\'")}', '${(r.email || '').replace(/'/g,"\\'")}', '${r.mobile || ''}')">✏️ Edit</button>
+          <button class="delete" onclick="deleteData('${r.id || ''}')">❌ Delete</button>
+        </td>
+      </tr>`;
+
+      cardsHTML += `
+        <div class="student-card">
+          ${r.photo ? `<img src="${r.photo}" alt="photo">` : '<div style="width:80px;height:80px;float:right;background:#eee;border-radius:12px;"></div>'}
+          <h4>${r.name || 'N/A'}</h4>
+          <div class="student-info">
+            <strong>ID:</strong> ${r.id || 'N/A'}<br>
+            <strong>Email:</strong> ${r.email || 'N/A'}<br>
+            <strong>Mobile:</strong> ${r.mobile || 'N/A'}
+          </div>
+          <div class="action-buttons">
+            <button class="edit" onclick="editData('${r.id || ''}', '${(r.name || '').replace(/'/g,"\\'")}', '${(r.email || '').replace(/'/g,"\\'")}', '${r.mobile || ''}')">✏️ Edit</button>
+            <button class="delete" onclick="deleteData('${r.id || ''}')">❌ Delete</button>
+          </div>
+        </div>`;
+    });
+  }
+
+  document.getElementById("tbody").innerHTML = tableHTML;
+  document.getElementById("studentCards").innerHTML = cardsHTML;
+}
+
+function searchData() {
+  const val = document.getElementById("search")?.value.toLowerCase().trim() || "";
+  const filtered = allData.filter(d => d.name?.toLowerCase().includes(val));
+  render(filtered);
+}
+
+function editData(id, name, email, mobile) {
+  document.getElementById("id").value = id;
+  document.getElementById("name").value = name;
+  document.getElementById("email").value = email;
+  document.getElementById("mobile").value = mobile;
+  document.getElementById("saveBtn").innerText = "💾 Update Student";
+}
+
+function deleteData(id) {
+  if (!id || !confirm("Delete this student?")) return;
+  fetch(URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action: "delete", id })
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res.status === "success") {
+      showToast("Deleted Successfully");
+      loadData();
+    } else {
+      showToast("Delete failed", "error");
+    }
+  })
+  .catch(() => showToast("Delete error", "error"));
+}
+
+async function startCamera() {
+  const status = document.getElementById("cameraStatus");
+  status.textContent = "Starting camera...";
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    status.textContent = "Camera not supported in this browser";
+    showToast("Camera API not supported", "error");
+    return;
+  }
+
+  try {
+    if (videoStream) {
+      videoStream.getTracks().forEach(track => track.stop());
+    }
+
+    videoStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user" }  // "environment" for back camera
+    });
+
+    const video = document.getElementById("videoPreview");
+    video.srcObject = videoStream;
+    video.style.display = "block";
+    document.getElementById("captureBtn").style.display = "block";
+    document.getElementById("startCameraBtn").style.display = "none";
+    document.getElementById("retakeBtn").style.display = "none";
+    document.getElementById("capturedPhoto").style.display = "none";
+    status.textContent = "Camera ready! Take photo when ready.";
+  } catch (err) {
+    console.error("Camera error:", err.name, err.message);
+    let msg = "Camera access failed";
+    if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+      msg = "Camera permission denied. Allow in browser settings.";
+      status.innerHTML = 'Permission blocked? Go to Chrome Settings → Site settings → Camera → Allow for this site';
+    } else if (err.name === "SecurityError") {
+      msg = "Page must load over HTTPS";
+    } else if (err.name === "NotReadableError") {
+      msg = "Camera in use by another app";
+    }
+    showToast(msg, "error");
+    status.textContent = msg;
+  }
+}
+
+function capturePhoto() {
+  const video = document.getElementById("videoPreview");
+  if (!video.srcObject) return;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video, 0, 0);
+
+  capturedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+  document.getElementById("capturedPhoto").src = capturedDataUrl;
+  document.getElementById("capturedPhoto").style.display = "block";
+
+  video.style.display = "none";
+  document.getElementById("captureBtn").style.display = "none";
+  document.getElementById("retakeBtn").style.display = "block";
+
+  if (videoStream) {
+    videoStream.getTracks().forEach(track => track.stop());
+    videoStream = null;
+  }
+  document.getElementById("cameraStatus").textContent = "Photo captured! Ready to save.";
+}
+
+function retakePhoto() {
+  capturedDataUrl = null;
+  document.getElementById("capturedPhoto").style.display = "none";
+  document.getElementById("retakeBtn").style.display = "none";
+  document.getElementById("cameraStatus").textContent = "";
+  startCamera();
+}
+
+document.getElementById("form").onsubmit = function(e) {
+  e.preventDefault();
+
+  const saveBtn = document.getElementById("saveBtn");
+  saveBtn.classList.add("loading");
+  saveBtn.innerText = "Saving...";
+
+  const id = document.getElementById("id").value;
+  const file = document.getElementById("photo").files[0];
+
+  const sendData = (photoData) => {
+    fetch(URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        action: id ? "update" : "add",
+        id: id,
+        name: document.getElementById("name").value,
+        email: document.getElementById("email").value,
+        mobile: document.getElementById("mobile").value,
+        photo: photoData
+      })
+    })
+    .then(r => r.json())
+    .then(result => {
+      if (result.status === "success") {
+        showToast(id ? "Updated ✅" : "Added ✅");
+        document.getElementById("form").reset();
+        document.getElementById("id").value = "";
+        capturedDataUrl = null;
+        document.getElementById("capturedPhoto").style.display = "none";
+        document.getElementById("videoPreview").style.display = "none";
+        document.getElementById("startCameraBtn").style.display = "block";
+        document.getElementById("captureBtn").style.display = "none";
+        document.getElementById("retakeBtn").style.display = "none";
+        document.getElementById("cameraStatus").textContent = "";
+        loadData();
+      } else {
+        showToast("Failed: " + (result.message || ""), "error");
+      }
+    })
+    .catch(() => showToast("Network error", "error"))
+    .finally(() => {
+      saveBtn.classList.remove("loading");
+      saveBtn.innerText = "💾 Save Student";
+    });
+  };
+
+  if (capturedDataUrl) {
+    sendData(capturedDataUrl);
+  } else if (file) {
+    const reader = new FileReader();
+    reader.onload = () => sendData(reader.result);
+    reader.readAsDataURL(file);
+  } else {
+    sendData(null);
+  }
+};
+
+// Event listeners
+document.getElementById("startCameraBtn").onclick = startCamera;
+document.getElementById("captureBtn").onclick = capturePhoto;
+document.getElementById("retakeBtn").onclick = retakePhoto;
+
+function toggleDark() {
+  document.body.classList.toggle("dark");
+}
+
+// Initial load
+loadData();
+</script>
+</body>
+</html>
